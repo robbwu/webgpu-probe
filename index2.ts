@@ -6,17 +6,19 @@ async function loadShader(url: string) {
 
 (async () => {
   console.log("index2.js");
+  let features = [];
   const adapter = await navigator.gpu.requestAdapter();
   if (!adapter) {
     return;
   }
-  if (!adapter.features.has("timestamp-query")) {
-    console.log("no timestamp!");
-    return;
+  let hasTimestamp = false;
+  if (adapter.features.has("timestamp-query")) {
+    hasTimestamp = true;
+    features.push("timestamp-query");
   }
 
   const device = await adapter.requestDevice({
-    requiredFeatures: ["timestamp-query"],
+    requiredFeatures: features,
   });
   console.log(device.features);
 
@@ -143,29 +145,29 @@ async function loadShader(url: string) {
       // GPUBufferUsage.STORAGE |
       GPUBufferUsage.COPY_SRC,
   });
-  const timestampWrites = {
-    querySet,
-    beginningOfPassWriteIndex: 0, // Write timestamp in index 0 when pass begins.
-    endOfPassWriteIndex: 1, // Write timestamp in index 1 when pass ends.
-  };
+  const timestampWrites = hasTimestamp
+    ? {
+        querySet,
+        beginningOfPassWriteIndex: 0, // Write timestamp in index 0 when pass begins.
+        endOfPassWriteIndex: 1, // Write timestamp in index 1 when pass ends.
+      }
+    : undefined;
 
   const commandEncoder = device.createCommandEncoder();
-  // commandEncoder.writeTimestamp(querySet, 0);
   const passEncoder = commandEncoder.beginComputePass({ timestampWrites });
 
   passEncoder.setPipeline(computePipeline);
   passEncoder.setBindGroup(0, bindGroup);
   const blockX = Math.ceil(first[0] / 8);
   const blockY = Math.ceil(second[1] / 8);
-  // passEncoder.writeTimestamp(querySet, 0);
-
   passEncoder.dispatchWorkgroups(blockX, blockY);
 
   // passEncoder.writeTimestamp(querySet, 1);
 
   passEncoder.end();
   // commandEncoder.writeTimestamp(querySet, 1);
-  commandEncoder.resolveQuerySet(querySet, 0, 2, queryBuffer, 0);
+  if (hasTimestamp)
+    commandEncoder.resolveQuerySet(querySet, 0, 2, queryBuffer, 0);
 
   const gpuReadBuffer = device.createBuffer({
     size: resultMatrixBufferSize,
