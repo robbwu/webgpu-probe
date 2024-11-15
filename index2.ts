@@ -20,9 +20,9 @@ async function loadShader(url: string) {
   });
   console.log(device.features);
 
-  const M = 512;
-  const N = 512;
-  const K = 512;
+  const M = 2048;
+  const N = 2048;
+  const K = 2048;
 
   const first = new Float32Array(2 + M * K);
   for (let i = 2; i < first.length; i++) {
@@ -186,6 +186,7 @@ async function loadShader(url: string) {
   commandEncoder.copyBufferToBuffer(queryBuffer, 0, queryReadBuffer, 0, size);
 
   const gpuCommand = commandEncoder.finish();
+  const t0 = Date.now();
   device.queue.submit([gpuCommand]);
 
   await queryReadBuffer.mapAsync(GPUMapMode.READ);
@@ -197,6 +198,9 @@ async function loadShader(url: string) {
   console.log(`exec time ${Number(ns) / 1e6} ms`);
   console.log(`${GFLOPS} GFLOPSs`);
   queryReadBuffer.unmap();
+  const t1 = Date.now();
+  console.log(`Time taken ${t1 - t0} ms`);
+  console.log(`GFLOPS js timer: ${(2 * M * N * K) / (t1 - t0) / 1e6}`);
 
   await gpuReadBuffer.mapAsync(GPUMapMode.READ);
   const arrayBuffer = gpuReadBuffer.getMappedRange();
