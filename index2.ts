@@ -132,10 +132,13 @@ async function loadShader(url: string) {
     ],
   });
 
-  const querySet = device.createQuerySet({
-    type: "timestamp",
-    count: 2,
-  });
+  let querySet: GPUQuerySet;
+  if (hasTimestamp) {
+    querySet = device.createQuerySet({
+      type: "timestamp",
+      count: 2,
+    });
+  }
   const size = 2 * BigInt64Array.BYTES_PER_ELEMENT;
   console.log("BigINT SIZE", size);
   const queryBuffer = device.createBuffer({
