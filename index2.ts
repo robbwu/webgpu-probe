@@ -215,8 +215,12 @@ async function loadShader(url: string) {
 
   const outputDiv = document.getElementById("output");
   if (outputDiv) {
+    let info: String = "unknown";
+    if (adapter.info)
+      info = `${adapter.info.vendor} ${adapter.info.architecture}`;
     outputDiv.textContent = `
-    Matmul FP32 ${M}x${N}x${K} on ${adapter.info.vendor} ${adapter.info.architecture}
+    Browser: ${navigator.userAgent}
+    Matmul FP32 ${M}x${N}x${K} on ${info}
     exec time (js timer): ${Number(t1 - t0)} ms
     exec time (gpu/shader timer): ${Number(ns) / 1e6} ms
     GFLOPS (js timer): ${(2 * M * N * K) / (t1 - t0) / 1e6}
