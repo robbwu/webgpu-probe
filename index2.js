@@ -169,10 +169,20 @@ async function loadShader(url) {
     console.log(`exec time ${Number(ns) / 1e6} ms`);
     console.log(`${GFLOPS} GFLOPSs`);
     queryReadBuffer.unmap();
+    await gpuReadBuffer.mapAsync(GPUMapMode.READ);
+    const arrayBuffer = gpuReadBuffer.getMappedRange();
     const t1 = Date.now();
     console.log(`Time taken ${t1 - t0} ms`);
     console.log(`GFLOPS js timer: ${(2 * M * N * K) / (t1 - t0) / 1e6}`);
-    await gpuReadBuffer.mapAsync(GPUMapMode.READ);
-    const arrayBuffer = gpuReadBuffer.getMappedRange();
     console.log(new Float32Array(arrayBuffer));
+    console.log(adapter.info);
+    const outputDiv = document.getElementById("output");
+    if (outputDiv) {
+        outputDiv.textContent = `
+    Matmul FP32 ${M}x${N}x${K} on ${adapter.info.vendor} ${adapter.info.architecture}
+    exec time (js timer): ${Number(t1 - t0)} ms
+    exec time (gpu/shader timer): ${Number(ns) / 1e6} ms
+    GFLOPS (js timer): ${(2 * M * N * K) / (t1 - t0) / 1e6}
+    `;
+    }
 })();
