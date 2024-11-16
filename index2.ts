@@ -201,8 +201,9 @@ async function loadShader(url: string) {
   queryReadBuffer.unmap();
 
   await gpuReadBuffer.mapAsync(GPUMapMode.READ);
-  const arrayBuffer = gpuReadBuffer.getMappedRange();
   let t1 = Date.now();
+
+  const arrayBuffer = gpuReadBuffer.getMappedRange();
   console.log(`Time taken ${t1 - t0} ms`);
   console.log(`GFLOPS js timer: ${(2 * M * N * K) / (t1 - t0) / 1e6}`);
   console.log(new Float32Array(arrayBuffer));
