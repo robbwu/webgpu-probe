@@ -21,6 +21,12 @@ async function loadShader(url: string) {
     requiredFeatures: features,
   });
   console.log(device.features);
+  const outputDiv = document.getElementById("output") as HTMLDivElement;
+  // add user agent
+  const sessionDiv = document.getElementById("session-info") as HTMLDivElement;
+  const userAgent = document.createElement("div");
+  userAgent.innerText = navigator.userAgent;
+  sessionDiv.appendChild(userAgent);
 
   // add control radio button and run button, a matrix size text input
   const controlDiv = document.getElementById("control") as HTMLDivElement;
@@ -37,7 +43,7 @@ async function loadShader(url: string) {
   verifyCheckbox.checked = true;
   controlDiv.appendChild(verifyCheckbox);
   const cboxLabel = document.createElement("label");
-  cboxLabel.innerText = "Verify";
+  cboxLabel.innerText = "Verify (slow)";
   controlDiv.appendChild(cboxLabel);
 
   runButton.onclick = async () => {
@@ -239,17 +245,17 @@ async function loadShader(url: string) {
 
     console.log(adapter.info);
 
-    const outputDiv = document.getElementById("output");
     if (outputDiv) {
       let info: String = "unknown";
       if (adapter.info) info = `${adapter.info.vendor} ${adapter.info.architecture}`;
-      outputDiv.textContent = `
-    Browser: ${navigator.userAgent}
+      const outputPre = document.createElement("pre");
+      outputPre.textContent = `
     Matmul FP32 ${M}x${N}x${K} on ${info}
     exec time (js timer): ${Number(t1 - t0)} ms
     exec time (gpu/shader timer): ${Number(ns) / 1e6} ms
     GFLOPS (js timer): ${(2 * M * N * K) / (t1 - t0) / 1e6}
     `;
+      outputDiv.prepend(outputPre);
     }
 
     return [first, second, result];
