@@ -1,4 +1,4 @@
-// Kernel 2: Using Shared Memory
+// Kernel 2: Using Shared Memory; 8x8 wg, 16x16 block
 struct Matrix {
     size: vec2f,
     numbers: array<f32>,
@@ -42,7 +42,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
         Bs[(li+8)*lds+lj+8] = B.numbers[(ki+li+8)*ldb+bj+lj+8];
 
         workgroupBarrier();
-        // compute C
+
         for (var kk=0u; kk<16; kk+=2) {
             Cs[li*lds+lj] += As[li*lds+kk] * Bs[kk*lds+lj];
             Cs[li*lds+lj+8] += As[li*lds+kk] * Bs[kk*lds+lj+8];
