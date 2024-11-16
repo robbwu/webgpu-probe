@@ -1,3 +1,6 @@
+// naive kernel for SGEMM row major, no shared memory
+// global memory not coalesced
+
 struct Matrix {
     size: vec2f,
     numbers: array<f32>,

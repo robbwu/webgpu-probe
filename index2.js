@@ -81,7 +81,7 @@ async function loadShader(url) {
             },
         ],
     });
-    const shaderCode = await loadShader("./shader2.wgsl");
+    const shaderCode = await loadShader("./shader3.wgsl");
     console.log(shaderCode);
     const shaderModule = device.createShaderModule({
         code: shaderCode,
@@ -119,13 +119,12 @@ async function loadShader(url) {
             },
         ],
     });
-    let querySet;
-    if (hasTimestamp) {
-        querySet = device.createQuerySet({
-            type: "timestamp",
-            count: 2,
-        });
-    }
+    const commandEncoder = device.createCommandEncoder();
+    var passEncoder;
+    var querySet = device.createQuerySet({
+        type: "occlusion",
+        count: 2,
+    });
     const size = 2 * BigInt64Array.BYTES_PER_ELEMENT;
     console.log("BigINT SIZE", size);
     const queryBuffer = device.createBuffer({
@@ -134,19 +133,25 @@ async function loadShader(url) {
             // GPUBufferUsage.STORAGE |
             GPUBufferUsage.COPY_SRC,
     });
-    const timestampWrites = hasTimestamp
-        ? {
+    if (hasTimestamp) {
+        querySet = device.createQuerySet({
+            type: "timestamp",
+            count: 2,
+        });
+        const timestampWrites = {
             querySet,
             beginningOfPassWriteIndex: 0, // Write timestamp in index 0 when pass begins.
             endOfPassWriteIndex: 1, // Write timestamp in index 1 when pass ends.
-        }
-        : undefined;
-    const commandEncoder = device.createCommandEncoder();
-    const passEncoder = commandEncoder.beginComputePass({ timestampWrites });
+        };
+        passEncoder = commandEncoder.beginComputePass({ timestampWrites });
+    }
+    else {
+        passEncoder = commandEncoder.beginComputePass();
+    }
     passEncoder.setPipeline(computePipeline);
     passEncoder.setBindGroup(0, bindGroup);
-    const blockX = Math.ceil(first[0] / 8);
-    const blockY = Math.ceil(second[1] / 8);
+    const blockX = Math.ceil(first[0] / 16);
+    const blockY = Math.ceil(second[1] / 16);
     passEncoder.dispatchWorkgroups(blockX, blockY);
     // passEncoder.writeTimestamp(querySet, 1);
     passEncoder.end();
@@ -164,7 +169,7 @@ async function loadShader(url) {
     });
     commandEncoder.copyBufferToBuffer(queryBuffer, 0, queryReadBuffer, 0, size);
     const gpuCommand = commandEncoder.finish();
-    const t0 = Date.now();
+    let t0 = Date.now();
     device.queue.submit([gpuCommand]);
     await queryReadBuffer.mapAsync(GPUMapMode.READ);
     const queryArrayBuffer = queryReadBuffer.getMappedRange();
@@ -177,7 +182,7 @@ async function loadShader(url) {
     queryReadBuffer.unmap();
     await gpuReadBuffer.mapAsync(GPUMapMode.READ);
     const arrayBuffer = gpuReadBuffer.getMappedRange();
-    const t1 = Date.now();
+    let t1 = Date.now();
     console.log(`Time taken ${t1 - t0} ms`);
     console.log(`GFLOPS js timer: ${(2 * M * N * K) / (t1 - t0) / 1e6}`);
     console.log(new Float32Array(arrayBuffer));
@@ -195,4 +200,42 @@ async function loadShader(url) {
     GFLOPS (js timer): ${(2 * M * N * K) / (t1 - t0) / 1e6}
     `;
     }
+    // check the accuracy
+    const C = new Float32Array(M * N);
+    t0 = Date.now();
+    sgemm("row-major", "no-transpose", "no-transpose", M, N, K, 1.0, first.slice(2), K, second.slice(2), N, 0.0, C, N);
+    t1 = Date.now();
+    console.log(`IKJ CPU SGEMM: ${t1 - t0} ms`);
+    console.log(`IKJ GFLOPS: ${(2 * M * N * K) / (t1 - t0) / 1e6}`);
+    // console.log(C);
+    let mismatch = false;
+    for (var i = 0; i < M; i++) {
+        for (var j = 0; j < N; j++) {
+            if (Math.abs(C[i * N + j] - new Float32Array(arrayBuffer)[2 + i * N + j]) > 1e-3) {
+                mismatch = true;
+                console.error(`mismatch at ${i} ${j} ${C[i * N + j]} ${new Float32Array(arrayBuffer)[i * N + j]}`);
+                break;
+            }
+        }
+        if (mismatch)
+            break;
+    }
+    if (!mismatch) {
+        console.log("All good");
+    }
+    else {
+        console.log("Mismatch");
+    }
 })();
+// alpha can only be 1.0; beta can only be 0.0
+function sgemm(major, transA, transB, M, N, K, alpha, A, lda, B, ldb, beta, C, ldc) {
+    for (var i = 0; i < M; i++) {
+        for (let k = 0; k < K; k++) {
+            const aik = A[i * lda + k];
+            for (var j = 0; j < N; j++) {
+                let sum = beta * C[i * ldc + j];
+                C[i * ldc + j] += aik * B[k * ldb + j];
+            }
+        }
+    }
+}
