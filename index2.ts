@@ -45,17 +45,32 @@ async function loadShader(url: string) {
   const cboxLabel = document.createElement("label");
   cboxLabel.innerText = "Verify (slow)";
   controlDiv.appendChild(cboxLabel);
+  controlDiv.appendChild(document.createElement("br"));
+  // add a dropdown for selecting the shader
+  const shaderSelect = document.createElement("select");
+  const shaderList = ["shader2.wgsl", "shader3.wgsl"];
+  for (let i = 0; i < shaderList.length; i++) {
+    const option = document.createElement("option");
+    option.value = shaderList[i];
+    option.text = shaderList[i];
+    shaderSelect.appendChild(option);
+  }
+  controlDiv.appendChild(shaderSelect);
 
   runButton.onclick = async () => {
     const size = parseInt(sizeInput.value);
     console.log("Size", size);
-    const [A, B, C] = await gpuCompute(size);
+    const [A, B, C] = await gpuCompute(size, shaderSelect.value);
     if (verifyCheckbox.checked) {
       cpuComputeAndCheck(A, B, C);
     }
   };
 
-  const gpuCompute = async (n: number): Promise<[Float32Array, Float32Array, Float32Array]> => {
+  const gpuCompute = async (n: number, shader: string): Promise<[Float32Array, Float32Array, Float32Array]> => {
+    let BLOCK_SIZE = 16;
+    if (shader == "shader2.wgsl") {
+      BLOCK_SIZE = 8;
+    }
     const M = n;
     const N = n;
     const K = n;
@@ -124,7 +139,7 @@ async function loadShader(url: string) {
       ],
     });
 
-    const shaderCode = await loadShader("./shader3.wgsl");
+    const shaderCode = await loadShader(shader);
     console.log(shaderCode);
 
     const shaderModule = device.createShaderModule({
@@ -198,8 +213,8 @@ async function loadShader(url: string) {
 
     passEncoder.setPipeline(computePipeline);
     passEncoder.setBindGroup(0, bindGroup);
-    const blockX = Math.ceil(first[0] / 16);
-    const blockY = Math.ceil(second[1] / 16);
+    const blockX = Math.ceil(first[0] / BLOCK_SIZE);
+    const blockY = Math.ceil(second[1] / BLOCK_SIZE);
     passEncoder.dispatchWorkgroups(blockX, blockY);
 
     // passEncoder.writeTimestamp(querySet, 1);
@@ -250,7 +265,7 @@ async function loadShader(url: string) {
       if (adapter.info) info = `${adapter.info.vendor} ${adapter.info.architecture}`;
       const outputPre = document.createElement("pre");
       outputPre.textContent = `
-    Matmul FP32 ${M}x${N}x${K} on ${info}
+    ${shader}: Matmul FP32 ${M}x${N}x${K} on ${info}
     exec time (js timer): ${Number(t1 - t0)} ms
     exec time (gpu/shader timer): ${Number(ns) / 1e6} ms
     GFLOPS (js timer): ${(2 * M * N * K) / (t1 - t0) / 1e6}
