@@ -46,7 +46,7 @@ async function loadShader(url) {
     controlDiv.appendChild(document.createElement("br"));
     // add a dropdown for selecting the shader
     const shaderSelect = document.createElement("select");
-    const shaderList = ["shader2.wgsl", "shader3.wgsl"];
+    const shaderList = ["shader1.wgsl", "shader2.wgsl", "shader3.wgsl"];
     for (let i = 0; i < shaderList.length; i++) {
         const option = document.createElement("option");
         option.value = shaderList[i];
@@ -64,7 +64,7 @@ async function loadShader(url) {
     };
     const gpuCompute = async (n, shader) => {
         let BLOCK_SIZE = 16;
-        if (shader == "shader2.wgsl") {
+        if (shader == "shader2.wgsl" || shader == "shader1.wgsl") {
             BLOCK_SIZE = 8;
         }
         const M = n;
