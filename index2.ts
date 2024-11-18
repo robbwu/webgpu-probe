@@ -48,7 +48,7 @@ async function loadShader(url: string) {
   controlDiv.appendChild(document.createElement("br"));
   // add a dropdown for selecting the shader
   const shaderSelect = document.createElement("select");
-  const shaderList = ["shader1.wgsl", "shader2.wgsl", "shader3.wgsl"];
+  const shaderList = ["shader1.wgsl", "shader2.wgsl", "shader3.wgsl", "shader4.wgsl"];
   for (let i = 0; i < shaderList.length; i++) {
     const option = document.createElement("option");
     option.value = shaderList[i];
@@ -70,6 +70,8 @@ async function loadShader(url: string) {
     let BLOCK_SIZE = 16;
     if (shader == "shader2.wgsl" || shader == "shader1.wgsl") {
       BLOCK_SIZE = 8;
+    } else if (shader == "shader4.wgsl") {
+      BLOCK_SIZE = 16 * 8;
     }
     const M = n;
     const N = n;
