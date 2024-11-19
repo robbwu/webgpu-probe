@@ -10,8 +10,25 @@ private:
 
 public:
     MetalMatrixMultiply() {
+        NSError* error = nil;
         // Get default Metal device
         device = MTLCreateSystemDefaultDevice();
+        if (!device) {
+            std::cerr << "Failed to create system default device, attempting to enumerate devices..." << std::endl;
+            // Try to enumerate all devices
+            NSArray<id<MTLDevice>>* devices = MTLCopyAllDevices();
+            if (!devices || [devices count] == 0) {
+                throw std::runtime_error("No Metal devices found in the system after enumeration");
+            }
+            std::cout << "Found " << [devices count] << " Metal devices:" << std::endl;
+            for (id<MTLDevice> dev in devices) {
+                std::cout << "  - " << [[dev name] UTF8String] << std::endl;
+            }
+
+            // Take the first device
+            device = [devices firstObject];
+        }
+
         if (!device) {
             throw std::runtime_error("Failed to create Metal device");
         }
@@ -124,6 +141,8 @@ int main() {
 
         // Use result...
         std::cout << "First element of result: " << result[0] << std::endl;
+        std::cout << "Metal Shader Performance Library: " << std::endl;
+        std::cout << "Matrix size: " << M << "x" << N << "x" << K << std::endl;
         std::cout << "Time: " << duration_cast<microseconds>(t2 - t1).count() << " us" << std::endl;
         std::cout << "GFLOPS: " << 2.0 * M * N * K / duration_cast<microseconds>(t2 - t1).count()/1e3 << std::endl;
         // Cleanup
