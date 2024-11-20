@@ -137,14 +137,24 @@ int main() {
 
         high_resolution_clock::time_point t1 = high_resolution_clock::now();
         multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K);
+        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K);
+        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K);
+        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K);
+        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K);
+        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K);
+        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K);
+        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K);
+        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K);
+        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K);
         high_resolution_clock::time_point t2 = high_resolution_clock::now();
 
         // Use result...
         std::cout << "First element of result: " << result[0] << std::endl;
         std::cout << "Metal Shader Performance Library: " << std::endl;
         std::cout << "Matrix size: " << M << "x" << N << "x" << K << std::endl;
-        std::cout << "Time: " << duration_cast<microseconds>(t2 - t1).count() << " us" << std::endl;
-        std::cout << "GFLOPS: " << 2.0 * M * N * K / duration_cast<microseconds>(t2 - t1).count()/1e3 << std::endl;
+        std::cout << "Average over 10 runs:" << std::endl;
+        std::cout << "Time: " << duration_cast<microseconds>(t2 - t1).count()/10 << " us" << std::endl;
+        std::cout << "GFLOPS: " << 10*2.0 * M * N * K / duration_cast<microseconds>(t2 - t1).count()/1e3 << std::endl;
         // Cleanup
         delete[] matrixA;
         delete[] matrixB;
