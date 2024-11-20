@@ -48,7 +48,12 @@ async function loadShader(url: string) {
   controlDiv.appendChild(document.createElement("br"));
   // add a dropdown for selecting the shader
   const shaderSelect = document.createElement("select");
-  const shaderList = ["shader1.wgsl", "shader2.wgsl", "shader3.wgsl", "shader4.wgsl"];
+  const shaderList = [
+    "shader1.wgsl",
+    "shader2.wgsl",
+    "shader3.wgsl",
+    "shader4.wgsl",
+  ];
   for (let i = 0; i < shaderList.length; i++) {
     const option = document.createElement("option");
     option.value = shaderList[i];
@@ -56,6 +61,12 @@ async function loadShader(url: string) {
     shaderSelect.appendChild(option);
   }
   controlDiv.appendChild(shaderSelect);
+  controlDiv.appendChild(document.createElement("br"));
+  // add a input box for repetitions, default to 1
+  const repeatInput = document.createElement("input");
+  repeatInput.type = "text";
+  repeatInput.value = "1";
+  controlDiv.appendChild(repeatInput);
 
   runButton.onclick = async () => {
     const size = parseInt(sizeInput.value);
@@ -66,7 +77,10 @@ async function loadShader(url: string) {
     }
   };
 
-  const gpuCompute = async (n: number, shader: string): Promise<[Float32Array, Float32Array, Float32Array]> => {
+  const gpuCompute = async (
+    n: number,
+    shader: string,
+  ): Promise<[Float32Array, Float32Array, Float32Array]> => {
     let BLOCK_SIZE = 16;
     if (shader == "shader2.wgsl" || shader == "shader1.wgsl") {
       BLOCK_SIZE = 8;
@@ -109,7 +123,8 @@ async function loadShader(url: string) {
     new Float32Array(arrayBufferSecondMatrix).set(second);
     gpuBufferSecondMatrix.unmap();
 
-    const resultMatrixBufferSize = Float32Array.BYTES_PER_ELEMENT * (2 + first[0] * second[1]);
+    const resultMatrixBufferSize =
+      Float32Array.BYTES_PER_ELEMENT * (2 + first[0] * second[1]);
     const resultMatrixBuffer = device.createBuffer({
       size: resultMatrixBufferSize,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
@@ -223,14 +238,21 @@ async function loadShader(url: string) {
 
     passEncoder.end();
     // commandEncoder.writeTimestamp(querySet, 1);
-    if (hasTimestamp) commandEncoder.resolveQuerySet(querySet, 0, 2, queryBuffer, 0);
+    if (hasTimestamp)
+      commandEncoder.resolveQuerySet(querySet, 0, 2, queryBuffer, 0);
 
     const gpuReadBuffer = device.createBuffer({
       size: resultMatrixBufferSize,
       usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
     });
 
-    commandEncoder.copyBufferToBuffer(resultMatrixBuffer, 0, gpuReadBuffer, 0, resultMatrixBufferSize);
+    commandEncoder.copyBufferToBuffer(
+      resultMatrixBuffer,
+      0,
+      gpuReadBuffer,
+      0,
+      resultMatrixBufferSize,
+    );
     const queryReadBuffer = device.createBuffer({
       size: size,
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
@@ -264,7 +286,8 @@ async function loadShader(url: string) {
 
     if (outputDiv) {
       let info: String = "unknown";
-      if (adapter.info) info = `${adapter.info.vendor} ${adapter.info.architecture}`;
+      if (adapter.info)
+        info = `${adapter.info.vendor} ${adapter.info.architecture}`;
       const outputPre = document.createElement("pre");
       outputPre.textContent = `
     ${shader}: Matmul FP32 ${M}x${N}x${K} on ${info}
@@ -279,14 +302,33 @@ async function loadShader(url: string) {
   };
 
   // check the accuracy
-  const cpuComputeAndCheck = (A: Float32Array, B: Float32Array, C0: Float32Array) => {
+  const cpuComputeAndCheck = (
+    A: Float32Array,
+    B: Float32Array,
+    C0: Float32Array,
+  ) => {
     const M = A[0];
     const N = B[1];
     const K = A[1];
 
     const C = new Float32Array(M * N);
     const t0 = Date.now();
-    sgemm("row-major", "no-transpose", "no-transpose", M, N, K, 1.0, A.slice(2), K, B.slice(2), N, 0.0, C, N);
+    sgemm(
+      "row-major",
+      "no-transpose",
+      "no-transpose",
+      M,
+      N,
+      K,
+      1.0,
+      A.slice(2),
+      K,
+      B.slice(2),
+      N,
+      0.0,
+      C,
+      N,
+    );
     const t1 = Date.now();
     console.log(`IKJ CPU SGEMM: ${t1 - t0} ms`);
     console.log(`IKJ GFLOPS: ${(2 * M * N * K) / (t1 - t0) / 1e6}`);
@@ -297,7 +339,9 @@ async function loadShader(url: string) {
       for (var j = 0; j < N; j++) {
         if (Math.abs(C[i * N + j] - C0[2 + i * N + j]) > 1e-3) {
           mismatch = true;
-          console.error(`mismatch at ${i} ${j} ${C[i * N + j]} ${C0[i * N + j]}`);
+          console.error(
+            `mismatch at ${i} ${j} ${C[i * N + j]} ${C0[i * N + j]}`,
+          );
           break;
         }
       }

@@ -46,7 +46,12 @@ async function loadShader(url) {
     controlDiv.appendChild(document.createElement("br"));
     // add a dropdown for selecting the shader
     const shaderSelect = document.createElement("select");
-    const shaderList = ["shader1.wgsl", "shader2.wgsl", "shader3.wgsl", "shader4.wgsl"];
+    const shaderList = [
+        "shader1.wgsl",
+        "shader2.wgsl",
+        "shader3.wgsl",
+        "shader4.wgsl",
+    ];
     for (let i = 0; i < shaderList.length; i++) {
         const option = document.createElement("option");
         option.value = shaderList[i];
@@ -54,6 +59,12 @@ async function loadShader(url) {
         shaderSelect.appendChild(option);
     }
     controlDiv.appendChild(shaderSelect);
+    controlDiv.appendChild(document.createElement("br"));
+    // add a input box for repetitions, default to 1
+    const repeatInput = document.createElement("input");
+    repeatInput.type = "text";
+    repeatInput.value = "1";
+    controlDiv.appendChild(repeatInput);
     runButton.onclick = async () => {
         const size = parseInt(sizeInput.value);
         console.log("Size", size);
