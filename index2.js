@@ -46,12 +46,7 @@ async function loadShader(url) {
     controlDiv.appendChild(document.createElement("br"));
     // add a dropdown for selecting the shader
     const shaderSelect = document.createElement("select");
-    const shaderList = [
-        "shader1.wgsl",
-        "shader2.wgsl",
-        "shader3.wgsl",
-        "shader4.wgsl",
-    ];
+    const shaderList = ["shader1.wgsl", "shader2.wgsl", "shader3.wgsl", "shader4.wgsl"];
     for (let i = 0; i < shaderList.length; i++) {
         const option = document.createElement("option");
         option.value = shaderList[i];
@@ -64,16 +59,20 @@ async function loadShader(url) {
     const repeatInput = document.createElement("input");
     repeatInput.type = "text";
     repeatInput.value = "1";
+    const repeatLabel = document.createElement("label");
+    repeatLabel.innerText = "Repetitions";
     controlDiv.appendChild(repeatInput);
+    controlDiv.appendChild(repeatLabel);
     runButton.onclick = async () => {
         const size = parseInt(sizeInput.value);
         console.log("Size", size);
-        const [A, B, C] = await gpuCompute(size, shaderSelect.value);
+        const rep = parseInt(repeatInput.value);
+        const [A, B, C] = await gpuCompute(size, shaderSelect.value, rep);
         if (verifyCheckbox.checked) {
             cpuComputeAndCheck(A, B, C);
         }
     };
-    const gpuCompute = async (n, shader) => {
+    const gpuCompute = async (n, shader, repetitions) => {
         let BLOCK_SIZE = 16;
         if (shader == "shader2.wgsl" || shader == "shader1.wgsl") {
             BLOCK_SIZE = 8;
@@ -213,7 +212,9 @@ async function loadShader(url) {
         passEncoder.setBindGroup(0, bindGroup);
         const blockX = Math.ceil(first[0] / BLOCK_SIZE);
         const blockY = Math.ceil(second[1] / BLOCK_SIZE);
-        passEncoder.dispatchWorkgroups(blockX, blockY);
+        for (let i = 0; i < repetitions; i++) {
+            passEncoder.dispatchWorkgroups(blockX, blockY);
+        }
         // passEncoder.writeTimestamp(querySet, 1);
         passEncoder.end();
         // commandEncoder.writeTimestamp(querySet, 1);
@@ -244,8 +245,8 @@ async function loadShader(url) {
         await gpuReadBuffer.mapAsync(GPUMapMode.READ);
         let t1 = Date.now();
         const arrayBuffer = gpuReadBuffer.getMappedRange();
-        console.log(`Time taken ${t1 - t0} ms`);
-        console.log(`GFLOPS js timer: ${(2 * M * N * K) / (t1 - t0) / 1e6}`);
+        console.log(`Time taken ${(t1 - t0) / repetitions} ms (avg over ${repetitions} runs)`);
+        console.log(`GFLOPS js timer: ${(repetitions * (2 * M * N * K)) / (t1 - t0) / 1e6}`);
         const result = new Float32Array(arrayBuffer);
         console.log(result);
         console.log(adapter.info);
@@ -255,10 +256,10 @@ async function loadShader(url) {
                 info = `${adapter.info.vendor} ${adapter.info.architecture}`;
             const outputPre = document.createElement("pre");
             outputPre.textContent = `
-    ${shader}: Matmul FP32 ${M}x${N}x${K} on ${info}
-    exec time (js timer): ${Number(t1 - t0)} ms
+    ${shader}: Matmul FP32 ${M}x${N}x${K} on ${info}; ${repetitions} repetitions
+    exec time (js timer): ${Number(t1 - t0) / repetitions} ms
     exec time (gpu/shader timer): ${Number(ns) / 1e6} ms
-    GFLOPS (js timer): ${(2 * M * N * K) / (t1 - t0) / 1e6}
+    GFLOPS (js timer): ${(repetitions * (2 * M * N * K)) / (t1 - t0) / 1e6}
     `;
             outputDiv.prepend(outputPre);
         }
@@ -302,7 +303,6 @@ function sgemm(major, transA, transB, M, N, K, alpha, A, lda, B, ldb, beta, C, l
         for (let k = 0; k < K; k++) {
             const aik = A[i * lda + k];
             for (var j = 0; j < N; j++) {
-                let sum = beta * C[i * ldc + j];
                 C[i * ldc + j] += aik * B[k * ldb + j];
             }
         }

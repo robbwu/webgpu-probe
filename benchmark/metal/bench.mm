@@ -41,7 +41,7 @@ public:
     }
 
     void multiplyMatrices(const float* matrixA, const float* matrixB, float* result,
-                         int M, int N, int K) {
+        int M, int N, int K, int rep) {
         // Create Metal buffers
         id<MTLBuffer> bufferA = [device newBufferWithBytes:matrixA
                                                    length:M * K * sizeof(float)
@@ -97,10 +97,12 @@ public:
         id<MTLCommandBuffer> commandBuffer = [commandQueue commandBuffer];
 
         // Encode matrix multiplication
-        [matMul encodeToCommandBuffer:commandBuffer
+        for (int i = 0; i < rep; i++){
+            [matMul encodeToCommandBuffer:commandBuffer
                         leftMatrix:matA
                         rightMatrix:matB
                         resultMatrix:matC];
+        }
 
         // Commit and wait
         [commandBuffer commit];
@@ -119,6 +121,7 @@ int main() {
         const int M = 2048;
         const int N = 2048;
         const int K = 2048;
+        const int rep = 30; // repetition
 
         // Allocate and initialize matrices
         float* matrixA = new float[M * K];
@@ -132,29 +135,21 @@ int main() {
         // this is for warm up
         MetalMatrixMultiply multiplier;
 
-        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K);
+        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K, 1);
 
 
         high_resolution_clock::time_point t1 = high_resolution_clock::now();
-        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K);
-        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K);
-        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K);
-        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K);
-        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K);
-        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K);
-        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K);
-        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K);
-        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K);
-        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K);
+        multiplier.multiplyMatrices(matrixA, matrixB, result, M, N, K, rep);
+
         high_resolution_clock::time_point t2 = high_resolution_clock::now();
 
         // Use result...
         std::cout << "First element of result: " << result[0] << std::endl;
         std::cout << "Metal Shader Performance Library: " << std::endl;
         std::cout << "Matrix size: " << M << "x" << N << "x" << K << std::endl;
-        std::cout << "Average over 10 runs:" << std::endl;
-        std::cout << "Time: " << duration_cast<microseconds>(t2 - t1).count()/10 << " us" << std::endl;
-        std::cout << "GFLOPS: " << 10*2.0 * M * N * K / duration_cast<microseconds>(t2 - t1).count()/1e3 << std::endl;
+        std::cout << "Average over " << rep << " runs:" << std::endl;
+        std::cout << "Time: " << duration_cast<microseconds>(t2 - t1).count()/rep << " us" << std::endl;
+        std::cout << "GFLOPS: " << rep*2.0 * M * N * K / duration_cast<microseconds>(t2 - t1).count()/1e3 << std::endl;
         // Cleanup
         delete[] matrixA;
         delete[] matrixB;

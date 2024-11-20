@@ -28,7 +28,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 	let ldb = n;
 	let ldc = n;
 
-	var r = C.numbers[ti * ldc + tj];
+	var r = 0.0f;
 	for (var i=0u; i<u32(A.size.y); i=i+1u) {
 		r = r + A.numbers[ti * lda + i] * B.numbers[i * ldb + tj];
 	}

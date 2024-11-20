@@ -48,12 +48,7 @@ async function loadShader(url: string) {
   controlDiv.appendChild(document.createElement("br"));
   // add a dropdown for selecting the shader
   const shaderSelect = document.createElement("select");
-  const shaderList = [
-    "shader1.wgsl",
-    "shader2.wgsl",
-    "shader3.wgsl",
-    "shader4.wgsl",
-  ];
+  const shaderList = ["shader1.wgsl", "shader2.wgsl", "shader3.wgsl", "shader4.wgsl"];
   for (let i = 0; i < shaderList.length; i++) {
     const option = document.createElement("option");
     option.value = shaderList[i];
@@ -66,12 +61,16 @@ async function loadShader(url: string) {
   const repeatInput = document.createElement("input");
   repeatInput.type = "text";
   repeatInput.value = "1";
+  const repeatLabel = document.createElement("label");
+  repeatLabel.innerText = "Repetitions";
   controlDiv.appendChild(repeatInput);
+  controlDiv.appendChild(repeatLabel);
 
   runButton.onclick = async () => {
     const size = parseInt(sizeInput.value);
     console.log("Size", size);
-    const [A, B, C] = await gpuCompute(size, shaderSelect.value);
+    const rep = parseInt(repeatInput.value);
+    const [A, B, C] = await gpuCompute(size, shaderSelect.value, rep);
     if (verifyCheckbox.checked) {
       cpuComputeAndCheck(A, B, C);
     }
@@ -80,6 +79,7 @@ async function loadShader(url: string) {
   const gpuCompute = async (
     n: number,
     shader: string,
+    repetitions: number,
   ): Promise<[Float32Array, Float32Array, Float32Array]> => {
     let BLOCK_SIZE = 16;
     if (shader == "shader2.wgsl" || shader == "shader1.wgsl") {
@@ -123,8 +123,7 @@ async function loadShader(url: string) {
     new Float32Array(arrayBufferSecondMatrix).set(second);
     gpuBufferSecondMatrix.unmap();
 
-    const resultMatrixBufferSize =
-      Float32Array.BYTES_PER_ELEMENT * (2 + first[0] * second[1]);
+    const resultMatrixBufferSize = Float32Array.BYTES_PER_ELEMENT * (2 + first[0] * second[1]);
     const resultMatrixBuffer = device.createBuffer({
       size: resultMatrixBufferSize,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
@@ -232,27 +231,21 @@ async function loadShader(url: string) {
     passEncoder.setBindGroup(0, bindGroup);
     const blockX = Math.ceil(first[0] / BLOCK_SIZE);
     const blockY = Math.ceil(second[1] / BLOCK_SIZE);
-    passEncoder.dispatchWorkgroups(blockX, blockY);
-
+    for (let i = 0; i < repetitions; i++) {
+      passEncoder.dispatchWorkgroups(blockX, blockY);
+    }
     // passEncoder.writeTimestamp(querySet, 1);
 
     passEncoder.end();
     // commandEncoder.writeTimestamp(querySet, 1);
-    if (hasTimestamp)
-      commandEncoder.resolveQuerySet(querySet, 0, 2, queryBuffer, 0);
+    if (hasTimestamp) commandEncoder.resolveQuerySet(querySet, 0, 2, queryBuffer, 0);
 
     const gpuReadBuffer = device.createBuffer({
       size: resultMatrixBufferSize,
       usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
     });
 
-    commandEncoder.copyBufferToBuffer(
-      resultMatrixBuffer,
-      0,
-      gpuReadBuffer,
-      0,
-      resultMatrixBufferSize,
-    );
+    commandEncoder.copyBufferToBuffer(resultMatrixBuffer, 0, gpuReadBuffer, 0, resultMatrixBufferSize);
     const queryReadBuffer = device.createBuffer({
       size: size,
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
@@ -261,6 +254,7 @@ async function loadShader(url: string) {
 
     const gpuCommand = commandEncoder.finish();
     let t0 = Date.now();
+
     device.queue.submit([gpuCommand]);
 
     await queryReadBuffer.mapAsync(GPUMapMode.READ);
@@ -277,8 +271,8 @@ async function loadShader(url: string) {
     let t1 = Date.now();
 
     const arrayBuffer = gpuReadBuffer.getMappedRange();
-    console.log(`Time taken ${t1 - t0} ms`);
-    console.log(`GFLOPS js timer: ${(2 * M * N * K) / (t1 - t0) / 1e6}`);
+    console.log(`Time taken ${(t1 - t0) / repetitions} ms (avg over ${repetitions} runs)`);
+    console.log(`GFLOPS js timer: ${(repetitions * (2 * M * N * K)) / (t1 - t0) / 1e6}`);
     const result = new Float32Array(arrayBuffer);
     console.log(result);
 
@@ -286,14 +280,13 @@ async function loadShader(url: string) {
 
     if (outputDiv) {
       let info: String = "unknown";
-      if (adapter.info)
-        info = `${adapter.info.vendor} ${adapter.info.architecture}`;
+      if (adapter.info) info = `${adapter.info.vendor} ${adapter.info.architecture}`;
       const outputPre = document.createElement("pre");
       outputPre.textContent = `
-    ${shader}: Matmul FP32 ${M}x${N}x${K} on ${info}
-    exec time (js timer): ${Number(t1 - t0)} ms
+    ${shader}: Matmul FP32 ${M}x${N}x${K} on ${info}; ${repetitions} repetitions
+    exec time (js timer): ${Number(t1 - t0) / repetitions} ms
     exec time (gpu/shader timer): ${Number(ns) / 1e6} ms
-    GFLOPS (js timer): ${(2 * M * N * K) / (t1 - t0) / 1e6}
+    GFLOPS (js timer): ${(repetitions * (2 * M * N * K)) / (t1 - t0) / 1e6}
     `;
       outputDiv.prepend(outputPre);
     }
@@ -302,33 +295,14 @@ async function loadShader(url: string) {
   };
 
   // check the accuracy
-  const cpuComputeAndCheck = (
-    A: Float32Array,
-    B: Float32Array,
-    C0: Float32Array,
-  ) => {
+  const cpuComputeAndCheck = (A: Float32Array, B: Float32Array, C0: Float32Array) => {
     const M = A[0];
     const N = B[1];
     const K = A[1];
 
     const C = new Float32Array(M * N);
     const t0 = Date.now();
-    sgemm(
-      "row-major",
-      "no-transpose",
-      "no-transpose",
-      M,
-      N,
-      K,
-      1.0,
-      A.slice(2),
-      K,
-      B.slice(2),
-      N,
-      0.0,
-      C,
-      N,
-    );
+    sgemm("row-major", "no-transpose", "no-transpose", M, N, K, 1.0, A.slice(2), K, B.slice(2), N, 0.0, C, N);
     const t1 = Date.now();
     console.log(`IKJ CPU SGEMM: ${t1 - t0} ms`);
     console.log(`IKJ GFLOPS: ${(2 * M * N * K) / (t1 - t0) / 1e6}`);
@@ -339,9 +313,7 @@ async function loadShader(url: string) {
       for (var j = 0; j < N; j++) {
         if (Math.abs(C[i * N + j] - C0[2 + i * N + j]) > 1e-3) {
           mismatch = true;
-          console.error(
-            `mismatch at ${i} ${j} ${C[i * N + j]} ${C0[i * N + j]}`,
-          );
+          console.error(`mismatch at ${i} ${j} ${C[i * N + j]} ${C0[i * N + j]}`);
           break;
         }
       }
@@ -376,7 +348,6 @@ function sgemm(
     for (let k = 0; k < K; k++) {
       const aik = A[i * lda + k];
       for (var j = 0; j < N; j++) {
-        let sum = beta * C[i * ldc + j];
         C[i * ldc + j] += aik * B[k * ldb + j];
       }
     }
