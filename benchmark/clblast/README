@@ -1,0 +1,29 @@
+Compile clBLAST https://github.com/CNugteren/CLBlast/tree/master
+Tune it, and copy the built library and header files here.
+
+Then
+```bash
+$ make && DYLD_LIBRARY_PATH=$PWD:$DYLD_LIBRARY_PATH ./bench
+```
+
+will report benchmarking results.
+
+Some example numbers:
+```
+% DYLD_LIBRARY_PATH=$PWD:$DYLD_LIBRARY_PATH ./bench                                                          master
+
+Device Information:
+Name: Apple M2 Pro
+Vendor: Apple
+Version: OpenCL 1.2
+Compute Units: 16
+Max Work Group Size: 256
+Global Memory Size: 10.6667 GB
+Max Clock Frequency: 1000 MHz
+
+Matrix dimensions: 2048x2048 * 2048x2048
+Average time: 9.09433 ms
+Best time: 8.46621 ms
+Average Performance: 1889.07 GFLOPS
+Peak Performance: 2029.23 GFLOPS
+```
